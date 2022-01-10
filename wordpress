@@ -1,0 +1,74 @@
+#!/bin/bash
+#user_name=$(getfacl . | grep "# owner" | awk -F " " '{print $3}')
+#group_name=$(getfacl . | grep "# group" | awk -F " " '{print $3}')
+
+read -p "Enter the application name: " appname
+path="/var/www/html/"
+while [[ "$appname" == `echo "$appname" | grep "^([a-zA-Z0-9-])$"` || "$appname" == `echo $appname | grep "//"` || "$appname" == [/]* || "$appname" != *[!@#\$.%^\&*()_+]* || "$appname" == [.]* || -z "$appname" ]]; do
+        read -p "The provided value is not correct. Please re-enter the application name: " appname
+done
+list=($(ls -l "$path" | sed 1d | awk '{print $9}' | grep ^$appname$ ))
+while [[ ! -z "$list" ]];
+do
+       read -p "Application Already Exist Please Enter Application Name Again:" appname
+while [[ "$appname" == `echo "$appname" | grep "^([a-zA-Z0-9-])$"` || "$appname" == `echo $appname | grep "//"` || "$appname" == [/]* || "$appname" != *[!@#\$.%^\&*()_+]* || "$appname" == [.]* || -z "$appname" ]]; do
+        read -p "The provided value is not correct. Please re-enter the application name: " appname
+done
+       list=($(ls -l "$path" | sed 1d | awk '{print $9}'| grep ^$appname$ ))
+done
+
+read -p "Please Enter Database Name:" dbname
+while [[ "$dbname" == `echo "$dbname" | grep "^([a-zA-Z0-9-])$"` || "$dbname" == `echo $dbname | grep "//"` || "$dbname" == [/]* || "$dbname" != *[!@#\$.%^\&*()_+]* || "$dbname" == [.]* || -z "$dbname" ]]; do
+        read -p "The provided value is not correct. Please re-enter the database name: " dbname
+done
+       DBEXISTS=$(mysql --batch --skip-column-names -e "SHOW DATABASES LIKE '"$dbname"';" | grep "$dbname" > /dev/null; echo "$?")
+if [ $DBEXISTS -eq 0 ];then
+    read -p "A database with the name $dbname already exists. Please re-enter any other name: " dbname
+else
+        while [[ "$dbname" == `echo "$dbname" | grep "^([a-zA-Z0-9-])$"` || "$dbname" == `echo $dbname | grep "//"` || "$dbname" == [/]* || "$dbname" != *[!@#\$.%^\&*()_+]* || "$dbname" == [.]* || -z "$dbname" ]]; do
+        read -p "The provided value is not correct. Please re-enter the database name: " dbname
+done
+
+fi
+[[ $? == 0 ]] && echo "Database User: "
+[[ $? == 0 ]] && read -e dbuser
+[[ $? == 0 ]] && echo "Database Password: "
+[[ $? == 0 ]] && read -s dbpass
+[[ $? == 0 ]] && mysql -uroot -e "create database $dbname"
+[[ $? == 0 ]] && mysql -uroot -e "GRANT ALL ON $dbname.* TO '$dbuser'@'localhost' IDENTIFIED BY '$dbpass'"
+[[ $? == 0 ]] && mysql -uroot -e "FLUSH PRIVILEGES"
+[[ $? == 0 ]] && sudo apt update
+#[[ $? == 0 ]] && sudo apt install php php-mysql php-curl php-gd php-mbstring php-xml php-xmlrpc php-soap php-intl php-zip -y
+[[ $? == 0 ]] && sudo systemctl restart apache2
+[[ $? == 0 ]] && cd /var/www/html/
+[[ $? == 0 ]] && sudo curl -O https://wordpress.org/latest.tar.gz
+[[ $? == 0 ]] && sudo tar -xvf latest.tar.gz
+[[ $? == 0 ]] && sudo rm latest.tar.gz
+[[ $? == 0 ]] && sudo mv wordpress $appname
+[[ $? == 0 ]] && sudo chown -R www-data:www-data /var/www/html/$appname
+[[ $? == 0 ]] && sudo find /var/www/html/$appname/ -type d -exec chmod 750 {} \;
+[[ $? == 0 ]] && sudo find /var/www/html/$appname/ -type f -exec chmod 640 {} \;
+[[ $? == 0 ]] && cd $appname
+[[ $? == 0 ]] && sudo mv wp-config-sample.php wp-config.php
+[[ $? == 0 ]] && sed -i "s/database_name_here/$dbname/g" wp-config.php
+[[ $? == 0 ]] && sed -i "s/username_here/$dbuser/g" wp-config.php
+[[ $? == 0 ]] && sed -i "s/password_here/$dbpass/g" wp-config.php
+[[ $? == 0 ]] && sudo touch  /etc/apache2/sites-available/$appname.com.conf && echo -e "<VirtualHost *:80>
+    ServerName $appname.com
+        ServerAlias www.$appname.com
+        ServerAdmin webmaster@localhost
+        DocumentRoot /var/www/html/$appname
+
+        <Directory /var/www/html/$appname>
+            Options Indexes FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+
+        ErrorLog ${APACHE_LOG_DIR}/$appname-error.log
+        CustomLog ${APACHE_LOG_DIR}/$appname-access.log combined
+</VirtualHost>" >> /etc/apache2/sites-available/$appname.com.conf
+[[ $? == 0 ]] && sudo a2enmod rewrite
+[[ $? == 0 ]] && sudo a2ensite $appname.com.conf
+[[ $? == 0 ]] && sudo systemctl restart apache2
+

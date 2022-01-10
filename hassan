@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+
+export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+log_user 0
+set user [lindex $argv 0];
+
+spawn rsync -au /home/$user $user@54.175.144.218:/home/
+
+#spawn ssh $user@54.175.144.218
+
+expect "hassan@54.175.144.218's password:"
+
+send  "debian\r"
+
+interact

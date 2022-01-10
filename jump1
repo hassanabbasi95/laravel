@@ -1,0 +1,10 @@
+#!/usr/bin/expect
+
+spawn ssh hassan@59.103.152.244
+
+expect "Enter passphrase for key"
+
+send  "debian\r"
+
+interact
+
